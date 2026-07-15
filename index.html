@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT Payload Formatter & Transformation Helper | Smart Home Labor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* MQTT Teal Palette */
+        .text-mqtt-teal { color: #00a3a6; }
+        .bg-mqtt-teal { background-color: #00a3a6; }
+        .hover\:bg-mqtt-teal-dark:hover { background-color: #008285; }
+        .border-mqtt-teal { border-color: #00a3a6; }
+        .bg-mqtt-teal-light { background-color: rgba(0, 163, 166, 0.1); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b1329; }
+        ::-webkit-scrollbar-thumb { background: #1c2541; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00a3a6; }
+    </style>
+</head>
+<body class="bg-gradient-to-tr from-slate-950 via-slate-900 to-slate-950 text-slate-200 min-h-screen flex flex-col items-center p-4 md:p-8">
+
+    <div class="max-w-6xl w-full space-y-6">
+        
+        <div class="text-center py-4">
+            <span class="text-xs font-bold uppercase tracking-widest text-mqtt-teal bg-mqtt-teal-light px-3 py-1 rounded-full font-mono">MQTT Utilities</span>
+            <h1 class="text-3xl md:text-4xl font-black tracking-tight mt-3 text-white">MQTT Payload Formatter</h1>
+            <p class="text-sm text-slate-400 mt-2">Analysiere, formatiere und generiere openHAB-Transformationen (JSONPATH) aus MQTT-Nachrichten.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <div class="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl shadow-xl border border-white/5 flex flex-col space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <span>📥</span> Raw MQTT Payload
+                    </h2>
+                    
+                    <select id="decoderSelect" class="border border-slate-700 rounded-lg p-1.5 bg-slate-950 text-xs text-white outline-none focus:border-mqtt-teal">
+                        <option value="none">Kein Pre-Decoding (Standard)</option>
+                        <option value="base64">Base64 ➔ Text</option>
+                        <option value="hex">Hex ➔ Text</option>
+                    </select>
+                </div>
+
+                <textarea id="payloadInput" placeholder='Füge hier deine MQTT-Nachricht ein...&#10;z.B.: {"battery":90,"linkquality":72,"voltage":3000,"action":"single"}' 
+                    class="w-full h-[280px] p-4 bg-slate-950 text-slate-300 font-mono text-sm border border-slate-800 rounded-xl outline-none resize-none placeholder-slate-700 focus:border-mqtt-teal transition-all"></textarea>
+
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="loadSample('zigbee')" class="bg-slate-800 hover:bg-slate-700 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700 font-mono transition-all">Sample: Zigbee Sensor</button>
+                    <button onclick="loadSample('tasmota')" class="bg-slate-800 hover:bg-slate-700 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700 font-mono transition-all">Sample: Tasmota Tele</button>
+                    <button onclick="loadSample('base64')" class="bg-slate-800 hover:bg-slate-700 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700 font-mono transition-all">Sample: Base64</button>
+                </div>
+
+                <div class="bg-slate-950/30 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">openHAB Syntax Generator</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-500 mb-1">Item Typ</label>
+                            <select id="itemType" class="w-full border border-slate-700 rounded-lg p-2 bg-slate-950 text-xs text-white">
+                                <option value="Number">Number (Messwerte)</option>
+                                <option value="Switch">Switch (An/Aus)</option>
+                                <option value="String">String (Text)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 mb-1">Item Name</label>
+                            <input type="text" id="itemName" value="My_Sensor_Value" class="w-full border border-slate-700 rounded-lg p-2 bg-slate-950 text-xs text-white">
+                        </div>
+                    </div>
+                </div>
+
+                <button id="formatBtn" class="w-full bg-mqtt-teal hover:bg-mqtt-teal-dark text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all active:scale-[0.98] duration-150">
+                    Payload analysieren & formatieren ⚡
+                </button>
+            </div>
+
+            <div class="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl shadow-xl border border-white/5 flex flex-col space-y-4">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>✨</span> Interaktiver JSON-Tree & JSONPATH
+                </h2>
+                
+                <p class="text-[11px] text-slate-400">Klicke im untenstehenden Tree auf ein Element, um die openHAB-Konfiguration dafür automatisch zu generieren!</p>
+
+                <div class="border border-slate-800 rounded-xl bg-slate-950 p-4 overflow-auto h-[260px] font-mono text-xs text-emerald-400" id="jsonTreeContainer">
+                    <span class="text-slate-600">// Formatiere eine JSON-Nachricht, um den interaktiven Tree zu sehen.</span>
+                </div>
+
+                <div class="space-y-3 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Generierter JSONPATH</span>
+                            <button onclick="copyToClipboard('jsonpathOutput')" class="text-[10px] text-mqtt-teal hover:underline font-mono">Kopieren</button>
+                        </div>
+                        <input type="text" id="jsonpathOutput" readonly placeholder="Klicke auf einen JSON-Wert im Tree..." 
+                            class="w-full border border-slate-800 rounded-lg p-2.5 bg-slate-950 text-xs text-mqtt-teal font-mono outline-none">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">openHAB .items Definition (DSL)</span>
+                            <button onclick="copyToClipboard('itemOutput')" class="text-[10px] text-mqtt-teal hover:underline font-mono">Kopieren</button>
+                        </div>
+                        <input type="text" id="itemOutput" readonly placeholder="Wird dynamisch generiert..." 
+                            class="w-full border border-slate-800 rounded-lg p-2.5 bg-slate-950 text-xs text-emerald-400 font-mono outline-none">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const payloadInput = document.getElementById('payloadInput');
+        const decoderSelect = document.getElementById('decoderSelect');
+        const jsonTreeContainer = document.getElementById('jsonTreeContainer');
+        const jsonpathOutput = document.getElementById('jsonpathOutput');
+        const itemOutput = document.getElementById('itemOutput');
+        const itemType = document.getElementById('itemType');
+        const itemName = document.getElementById('itemName');
+        const formatBtn = document.getElementById('formatBtn');
+
+        // Beispiel-Payloads
+        const samples = {
+            zigbee: '{"battery":85,"linkquality":114,"temperature":21.45,"humidity":64.12,"contact":true}',
+            tasmota: '{"Time":"2026-07-15T12:00:00","Uptime":"14T02:11:05","Vcc":3.456,"ENERGY":{"Total":412.35,"Yesterday":1.41,"Today":0.88,"Power":24,"ApparentPower":36,"ReactivePower":27,"Factor":0.65,"Voltage":231,"Current":0.154}}',
+            base64: 'eyJzZW5zb3IiOiJvZmZpY2UiLCJ0ZW1wZXJhdHVyZSI6MjIuOCwiaHVtaWRpdHkiOjU1fQ=='
+        };
+
+        function loadSample(key) {
+            payloadInput.value = samples[key];
+            if (key === 'base64') {
+                decoderSelect.value = 'base64';
+            } else {
+                decoderSelect.value = 'none';
+            }
+            runFormatting();
+        }
+
+        // Helper: Base64 Decoder
+        function decodeBase64(str) {
+            try {
+                return atob(str.trim());
+            } catch (e) {
+                return "FEHLER: Ungültiger Base64 String!";
+            }
+        }
+
+        // Helper: Hex Decoder
+        function decodeHex(str) {
+            try {
+                let cleaned = str.replace(/\s+/g, '').replace(/0x/g, '');
+                let out = '';
+                for (let i = 0; i < cleaned.length; i += 2) {
+                    out += String.fromCharCode(parseInt(cleaned.substr(i, 2), 16));
+                }
+                return out;
+            } catch (e) {
+                return "FEHLER: Ungültiger Hex-String!";
+            }
+        }
+
+        // Rekursive Funktion zur Generierung des interaktiven HTML-JSON-Trees
+        function buildTree(obj, path = "$") {
+            const container = document.createElement('div');
+            container.className = "pl-4 select-none";
+
+            if (typeof obj === 'object' && obj !== null) {
+                const isArray = Array.isArray(obj);
+                const keys = isArray ? obj : Object.keys(obj);
+
+                for (let key in keys) {
+                    const value = obj[key];
+                    const currentPath = isArray ? `${path}[${key}]` : `${path}.${key}`;
+                    
+                    const line = document.createElement('div');
+                    line.className = "hover:bg-slate-900 py-0.5 rounded px-1 cursor-pointer transition-colors";
+                    
+                    // Event-Listener zur automatischen Auswahl des Pfades
+                    line.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        selectPath(currentPath, value);
+                    });
+
+                    const keySpan = document.createElement('span');
+                    keySpan.className = "text-orange-400 font-bold mr-1";
+                    keySpan.innerText = isArray ? `[${key}]:` : `"${key}":`;
+
+                    line.appendChild(keySpan);
+
+                    if (typeof value === 'object' && value !== null) {
+                        const bracketOpen = document.createElement('span');
+                        bracketOpen.className = "text-slate-500";
+                        bracketOpen.innerText = Array.isArray(value) ? "[" : "{";
+                        line.appendChild(bracketOpen);
+                        
+                        container.appendChild(line);
+                        container.appendChild(buildTree(value, currentPath));
+                        
+                        const bracketClose = document.createElement('div');
+                        bracketClose.className = "text-slate-500 pl-4";
+                        bracketClose.innerText = Array.isArray(value) ? "]" : "}";
+                        container.appendChild(bracketClose);
+                    } else {
+                        const valSpan = document.createElement('span');
+                        if (typeof value === 'string') {
+                            valSpan.className = "text-emerald-300";
+                            valSpan.innerText = `"${value}"`;
+                        } else if (typeof value === 'number') {
+                            valSpan.className = "text-sky-400";
+                            valSpan.innerText = value;
+                        } else {
+                            valSpan.className = "text-yellow-400";
+                            valSpan.innerText = value;
+                        }
+                        line.appendChild(valSpan);
+                        container.appendChild(line);
+                    }
+                }
+            }
+            return container;
+        }
+
+        // Verarbeitet Klick auf ein JSON-Element
+        function selectPath(path, value) {
+            jsonpathOutput.value = `JSONPATH:${path}`;
+            generateItemConfig(path, value);
+        }
+
+        // Generiert openHAB Item-Definition
+        function generateItemConfig(jsonPath, value) {
+            const type = itemType.value;
+            const name = itemName.value;
+            
+            // Ermittle passendes Pattern basierend auf Datentyp
+            let pattern = "[%s]";
+            if (typeof value === 'number') {
+                pattern = "[%.1f]";
+                if (Number.isInteger(value)) pattern = "[%d]";
+            }
+
+            // Syntax-Vorschlag für openHAB 3/4/5 DSL Items
+            const config = `${type} ${name} "Sensor-Messwert ${pattern}" { channel="mqtt:topic:broker:mydevice:mychannel" [profile="transform:JSONPATH", function="${jsonPath}"] }`;
+            itemOutput.value = config;
+        }
+
+        // Haupt-Ausführung
+        function runFormatting() {
+            let rawInput = payloadInput.value.trim();
+            if (!rawInput) {
+                alert("Bitte füge zuerst eine MQTT-Nachricht ein!");
+                return;
+            }
+
+            // Pre-Decoding
+            const decoder = decoderSelect.value;
+            if (decoder === 'base64') {
+                rawInput = decodeBase64(rawInput);
+            } else if (decoder === 'hex') {
+                rawInput = decodeHex(rawInput);
+            }
+
+            try {
+                const parsedJSON = JSON.parse(rawInput);
+                jsonTreeContainer.innerHTML = "";
+                
+                // Baue interaktiven Tree auf
+                const rootOpen = document.createElement('div');
+                rootOpen.className = "text-slate-500";
+                rootOpen.innerText = Array.isArray(parsedJSON) ? "[" : "{";
+                jsonTreeContainer.appendChild(rootOpen);
+
+                jsonTreeContainer.appendChild(buildTree(parsedJSON));
+
+                const rootClose = document.createElement('div');
+                rootClose.className = "text-slate-500";
+                rootClose.innerText = Array.isArray(parsedJSON) ? "]" : "}";
+                jsonTreeContainer.appendChild(rootClose);
+
+            } catch (err) {
+                jsonTreeContainer.innerHTML = `<span class="text-red-400">// Parsing-Fehler: Ungültiges JSON-Format.<br>${err.message}</span>`;
+                jsonpathOutput.value = "";
+                itemOutput.value = "";
+            }
+        }
+
+        // Kopierfunktion
+        function copyToClipboard(id) {
+            const el = document.getElementById(id);
+            if (!el.value) return;
+            navigator.clipboard.writeText(el.value).then(() => {
+                alert("Erfolgreich kopiert!");
+            });
+        }
+
+        // Event-Listeners
+        formatBtn.addEventListener('click', runFormatting);
+        itemType.addEventListener('change', () => {
+            // Generiere Item-Config neu bei Typänderung, sofern schon ein Pfad gewählt wurde
+            const jp = jsonpathOutput.value.replace("JSONPATH:", "");
+            if (jp) generateItemConfig(jp, null);
+        });
+        itemName.addEventListener('input', () => {
+            const jp = jsonpathOutput.value.replace("JSONPATH:", "");
+            if (jp) generateItemConfig(jp, null);
+        });
+    </script>
+</body>
+</html>
