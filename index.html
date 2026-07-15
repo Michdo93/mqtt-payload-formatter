@@ -162,21 +162,23 @@
             }
         }
 
-        // Rekursive Funktion zur Generierung des interaktiven HTML-JSON-Trees
+        // KORRIGIERTE FUNKTION zur Generierung des interaktiven HTML-JSON-Trees
         function buildTree(obj, path = "$") {
             const container = document.createElement('div');
             container.className = "pl-4 select-none";
 
             if (typeof obj === 'object' && obj !== null) {
                 const isArray = Array.isArray(obj);
-                const keys = isArray ? obj : Object.keys(obj);
+                // Bei Arrays nutzen wir die Indizes, bei Objekten die echten Keys
+                const keys = isArray ? Array.from({length: obj.length}, (_, i) => i) : Object.keys(obj);
 
-                for (let key in keys) {
+                // Verwende "for...of" anstelle von "for...in" für korrekte Werte
+                for (let key of keys) {
                     const value = obj[key];
                     const currentPath = isArray ? `${path}[${key}]` : `${path}.${key}`;
                     
                     const line = document.createElement('div');
-                    line.className = "hover:bg-slate-900 py-0.5 rounded px-1 cursor-pointer transition-colors";
+                    line.className = "hover:bg-slate-900 py-0.5 rounded px-1 cursor-pointer transition-colors flex items-center flex-wrap";
                     
                     // Event-Listener zur automatischen Auswahl des Pfades
                     line.addEventListener('click', (e) => {
@@ -187,12 +189,11 @@
                     const keySpan = document.createElement('span');
                     keySpan.className = "text-orange-400 font-bold mr-1";
                     keySpan.innerText = isArray ? `[${key}]:` : `"${key}":`;
-
                     line.appendChild(keySpan);
 
                     if (typeof value === 'object' && value !== null) {
                         const bracketOpen = document.createElement('span');
-                        bracketOpen.className = "text-slate-500";
+                        bracketOpen.className = "text-slate-500 ml-1";
                         bracketOpen.innerText = Array.isArray(value) ? "[" : "{";
                         line.appendChild(bracketOpen);
                         
@@ -200,19 +201,20 @@
                         container.appendChild(buildTree(value, currentPath));
                         
                         const bracketClose = document.createElement('div');
-                        bracketClose.className = "text-slate-500 pl-4";
+                        bracketClose.className = "text-slate-500 pl-4 py-0.5";
                         bracketClose.innerText = Array.isArray(value) ? "]" : "}";
                         container.appendChild(bracketClose);
                     } else {
                         const valSpan = document.createElement('span');
+                        valSpan.className = "ml-1";
                         if (typeof value === 'string') {
-                            valSpan.className = "text-emerald-300";
+                            valSpan.classList.add("text-emerald-300");
                             valSpan.innerText = `"${value}"`;
                         } else if (typeof value === 'number') {
-                            valSpan.className = "text-sky-400";
+                            valSpan.classList.add("text-sky-400");
                             valSpan.innerText = value;
                         } else {
-                            valSpan.className = "text-yellow-400";
+                            valSpan.classList.add("text-yellow-400");
                             valSpan.innerText = value;
                         }
                         line.appendChild(valSpan);
@@ -236,7 +238,7 @@
             
             // Ermittle passendes Pattern basierend auf Datentyp
             let pattern = "[%s]";
-            if (typeof value === 'number') {
+            if (value !== null && typeof value === 'number') {
                 pattern = "[%.1f]";
                 if (Number.isInteger(value)) pattern = "[%d]";
             }
@@ -268,14 +270,14 @@
                 
                 // Baue interaktiven Tree auf
                 const rootOpen = document.createElement('div');
-                rootOpen.className = "text-slate-500";
+                rootOpen.className = "text-slate-500 mb-1";
                 rootOpen.innerText = Array.isArray(parsedJSON) ? "[" : "{";
                 jsonTreeContainer.appendChild(rootOpen);
 
                 jsonTreeContainer.appendChild(buildTree(parsedJSON));
 
                 const rootClose = document.createElement('div');
-                rootClose.className = "text-slate-500";
+                rootClose.className = "text-slate-500 mt-1";
                 rootClose.innerText = Array.isArray(parsedJSON) ? "]" : "}";
                 jsonTreeContainer.appendChild(rootClose);
 
