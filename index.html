@@ -225,22 +225,52 @@
             return container;
         }
 
-        // Verarbeitet Klick auf ein JSON-Element
+        // Verarbeitet den Klick auf ein JSON-Element mit intelligenter Typ-Erkennung
         function selectPath(path, value) {
             jsonpathOutput.value = `JSONPATH:${path}`;
+            
+            // Automatische Typ-Erkennung
+            if (typeof value === 'boolean') {
+                itemType.value = "Switch";
+            } else if (typeof value === 'number') {
+                itemType.value = "Number";
+            } else if (typeof value === 'string') {
+                // Falls der String wie eine Zahl aussieht, trotzdem als Number deklarieren
+                if (!isNaN(value) && value.trim() !== "") {
+                    itemType.value = "Number";
+                } else {
+                    itemType.value = "String";
+                }
+            } else {
+                itemType.value = "String"; // Fallback
+            }
+
+            // Generiere die Konfiguration mit dem erkannten Wert
             generateItemConfig(path, value);
         }
 
-        // Generiert openHAB Item-Definition
+        // Generiert openHAB Item-Definition mit dynamischen State-Patterns
         function generateItemConfig(jsonPath, value) {
             const type = itemType.value;
             const name = itemName.value;
             
-            // Ermittle passendes Pattern basierend auf Datentyp
-            let pattern = "[%s]";
-            if (value !== null && typeof value === 'number') {
-                pattern = "[%.1f]";
-                if (Number.isInteger(value)) pattern = "[%d]";
+            // Dynamische Ermittlung des passenden Anzeige-Patterns [%...]
+            let pattern = "[%s]"; // Standard für Strings
+            
+            if (type === "Number") {
+                if (value !== null) {
+                    // Wenn es eine Zahl ist, unterscheide Float und Integer
+                    const numVal = Number(value);
+                    if (!isNaN(numVal)) {
+                        pattern = Number.isInteger(numVal) ? "[%d]" : "[%.1f]";
+                    } else {
+                        pattern = "[%.1f]";
+                    }
+                } else {
+                    pattern = "[%.1f]";
+                }
+            } else if (type === "Switch") {
+                pattern = "[%s]";
             }
 
             // Syntax-Vorschlag für openHAB 3/4/5 DSL Items
